@@ -26,7 +26,7 @@
                 interests: document.getElementById("interests").value.split(",").map(i => i.trim()),
                 child_filter: document.getElementById("child_filter").checked
             };
-            fetch("/news_synthesis/config", {
+            fetch("/NouvellesDuJour/config", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(config)
