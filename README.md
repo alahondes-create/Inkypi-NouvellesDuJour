@@ -1,0 +1,2 @@
+# NouvellesDuJour
+Synthèse des informations
