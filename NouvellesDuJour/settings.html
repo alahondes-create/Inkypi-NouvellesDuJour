@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Configuration Nouvelles du jour</title>
+</head>
+<body>
+    <h1>Configuration de la synthèse d'actualité</h1>
+    <form id="configForm">
+        <label>Nombre de mots: <input type="number" id="word_count" value="200"></label><br>
+        <label>Style littéraire:
+            <select id="literary_style">
+                <option value="neutre">Neutre</option>
+                <option value="Victor Hugo">Victor Hugo</option>
+                <option value="Flaubert">Flaubert</option>
+            </select>
+        </label><br>
+        <label>Centres d'intérêt (séparés par des virgules): <input type="text" id="interests" value="technologie,économie"></label><br>
+        <label><input type="checkbox" id="child_filter"> Filtre enfant</label><br>
+        <button type="button" onclick="saveConfig()">Sauvegarder</button>
+    </form>
+    <script>
+        function saveConfig() {
+            const config = {
+                word_count: document.getElementById("word_count").value,
+                literary_style: document.getElementById("literary_style").value,
+                interests: document.getElementById("interests").value.split(",").map(i => i.trim()),
+                child_filter: document.getElementById("child_filter").checked
+            };
+            fetch("/news_synthesis/config", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(config)
+            }).then(() => alert("Configuration sauvegardée !"));
+        }
+    </script>
+</body>
+</html>
