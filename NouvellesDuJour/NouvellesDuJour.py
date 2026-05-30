@@ -19,14 +19,17 @@ CACHE_FILE = CACHE_DIR / "daily_summary.json"
 def load_cache():
     if CACHE_FILE.exists():
         try:
+            logger.debug("Loading cache")
             return json.load(open(CACHE_FILE, "r", encoding="utf-8"))
         except:
+            logger.debug("No cache")
             return None
     return None
 
 
 def save_cache(data):
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        logger.debug("Saving cache")
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
@@ -37,23 +40,24 @@ def save_cache(data):
 class NouvellesDuJour(BasePlugin):
 
     def generate_settings_template(self):
+        logger.debug("Generating settings template")
         template = super().generate_settings_template()
         template["style_settings"] = True
         return template
 
     def generate_image(self, settings, device_config):
-
+        logger.debug("Generating image")
         api_key = device_config.load_env_key("MISTRAL_API_KEY")
         if not api_key:
             raise RuntimeError("MISTRAL_API_KEY manquante")
-
+        logger.debug("API Key loaded")
         word_count = int(settings.get("word_count", 500))
         style = settings.get("style", "journalistique")
         topics = settings.get("topics", "")
         kids_filter = settings.get("kids_filter", False)
 
         articles = self.fetch_google_news(topics)
-
+        logger.debug(f"Found {len(articles)} articles")
         summary = self.get_or_create_summary(
             api_key,
             articles,
@@ -62,14 +66,15 @@ class NouvellesDuJour(BasePlugin):
             topics,
             kids_filter
         )
-
+        dimensions=device_config.get_config.resolution()
         return self.render_image(
+            dimensions,
             html_file="render/digest.html",
             css_file="render/digest.css",
             template_params={
                 "summary": summary,
                 "date": datetime.now().strftime("%d/%m/%Y"),
-                "large": device_config.screen_width >= 1400
+                "large": device_config.get_config.resolution()
             }
         )
 
@@ -78,7 +83,7 @@ class NouvellesDuJour(BasePlugin):
     # -------------------------
 
     def fetch_google_news(self, topics):
-
+        logger.debug("Fetching Google News")
         base_url = "https://news.google.com/rss/search?q="
 
         if topics:
@@ -152,7 +157,7 @@ class NouvellesDuJour(BasePlugin):
         topics,
         kids_filter
     ):
-
+        logger.debug("Calling Mistral")
 
         formatted_news = "\n".join(
             f"- {a['title']} ({a['source']})"
@@ -187,6 +192,7 @@ Tu dois produire :
 
 Ne mentionne pas la liste brute des articles.
 """
+        logger.debug(f"prompt de requete vers Mistral: {prompt}")
         try:
             url = "https://api.mistral.ai/v1/chat/completions"
             response = requests.post(
@@ -213,7 +219,7 @@ Ne mentionne pas la liste brute des articles.
             )
 
             response.raise_for_status()
-
+            logger.debug(f"Mistral response: {response.json()["choices"][0]["message"]["content"]}")
             return response.json()["choices"][0]["message"]["content"]
 
         except Exception as e:
