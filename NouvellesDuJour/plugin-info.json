@@ -1,5 +1,5 @@
 {
-    "display_name": "Nouvelle du jour",
-    "id": "NouvellesDuJour",
-    "class": "NouvellesDuJour"
+  "display_name": "Synthèse du Jour",
+  "id": "NouvellesDuJour",
+  "class": "NouvellesDuJour"
 }
