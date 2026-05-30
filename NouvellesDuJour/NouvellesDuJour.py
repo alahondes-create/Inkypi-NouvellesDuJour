@@ -43,7 +43,7 @@ class NouvellesDuJour(BasePlugin):
 
     def generate_image(self, settings, device_config):
 
-        api_key = device_config.getenv("MISTRAL_API_KEY")
+        api_key = device_config.load_env_key("MISTRAL_API_KEY")
         if not api_key:
             raise RuntimeError("MISTRAL_API_KEY manquante")
 
