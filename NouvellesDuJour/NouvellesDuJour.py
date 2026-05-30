@@ -3,9 +3,10 @@ from pathlib import Path
 import json
 import feedparser
 import requests
+import logging
 from plugins.base_plugin.base_plugin import BasePlugin
 
-
+logger = logging.getLogger(__name__)
 CACHE_DIR = Path(__file__).parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
@@ -66,8 +67,8 @@ class NouvellesDuJour(BasePlugin):
             topics,
             kids_filter
         )
-        dimensions=device_config.get_config.resolution()
-        return self.render_image(
+        dimensions=device_config.get_resolution()
+        image= self.render_image(
             dimensions,
             html_file="render/digest.html",
             css_file="render/digest.css",
@@ -77,6 +78,9 @@ class NouvellesDuJour(BasePlugin):
                 "large": device_config.get_config.resolution()
             }
         )
+	    if not image:
+		    raise RuntimeError("Failed to take screenshot,please check logs.")
+	    return image
 
     # -------------------------
     # GOOGLE NEWS RSS
