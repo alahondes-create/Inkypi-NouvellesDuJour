@@ -3,9 +3,7 @@ from pathlib import Path
 import json
 import feedparser
 import requests
-
-
-from plugins.base_plugin import BasePlugin
+from plugins.base_plugin.base_plugin import BasePlugin
 
 
 CACHE_DIR = Path(__file__).parent / "cache"
