@@ -1,37 +1,119 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Configuration Nouvelles du jour</title>
-</head>
-<body>
-    <h1>Configuration de la synthèse d'actualité</h1>
-    <form id="configForm">
-        <label>Nombre de mots: <input type="number" id="word_count" value="200"></label><br>
-        <label>Style littéraire:
-            <select id="literary_style">
-                <option value="neutre">Neutre</option>
-                <option value="Victor Hugo">Victor Hugo</option>
-                <option value="Flaubert">Flaubert</option>
-            </select>
-        </label><br>
-        <label>Centres d'intérêt (séparés par des virgules): <input type="text" id="interests" value="technologie,économie"></label><br>
-        <label><input type="checkbox" id="child_filter"> Filtre enfant</label><br>
-        <button type="button" onclick="saveConfig()">Sauvegarder</button>
-    </form>
-    <script>
-        function saveConfig() {
-            const config = {
-                word_count: document.getElementById("word_count").value,
-                literary_style: document.getElementById("literary_style").value,
-                interests: document.getElementById("interests").value.split(",").map(i => i.trim()),
-                child_filter: document.getElementById("child_filter").checked
-            };
-            fetch("/NouvellesDuJour/config", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(config)
-            }).then(() => alert("Configuration sauvegardée !"));
+<div class="form-group">
+    <label for="word_count">
+        Nombre de mots
+    </label>
+    <input
+        type="number"
+        id="word_count"
+        name="word_count"
+        min="100"
+        max="2000"
+        value="500"
+        class="form-control">
+</div>
+
+<div class="form-group">
+    <label for="style">
+        Style littéraire
+    </label>
+    <select
+        id="style"
+        name="style"
+        class="form-control">
+
+```
+    <option value="journalistique">
+        Journalistique
+    </option>
+
+    <option value="Victor Hugo">
+        Victor Hugo
+    </option>
+
+    <option value="Flaubert">
+        Gustave Flaubert
+    </option>
+
+    <option value="Zola">
+        Émile Zola
+    </option>
+
+    <option value="Maupassant">
+        Guy de Maupassant
+    </option>
+
+</select>
+```
+
+</div>
+
+<div class="form-group">
+    <label for="topics">
+        Centres d'intérêt
+        (séparés par des virgules)
+    </label>
+
+```
+<input
+    type="text"
+    id="topics"
+    name="topics"
+    value="technologie, économie"
+    class="form-control"
+    placeholder="IA, espace, économie, sciences">
+```
+
+</div>
+
+<div class="form-group">
+    <label>
+        <input
+            type="checkbox"
+            id="kids_filter"
+            name="kids_filter">
+
+```
+    Filtre enfant
+</label>
+```
+
+</div>
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        if (
+            typeof pluginSettings !== "undefined"
+        ) {
+
+            document.getElementById(
+                "word_count"
+            ).value =
+                pluginSettings.word_count || 500;
+
+            document.getElementById(
+                "style"
+            ).value =
+                pluginSettings.style ||
+                "journalistique";
+
+            document.getElementById(
+                "topics"
+            ).value =
+                pluginSettings.topics ||
+                "";
+
+            document.getElementById(
+                "kids_filter"
+            ).checked =
+                pluginSettings.kids_filter === true ||
+                pluginSettings.kids_filter === "on";
         }
-    </script>
-</body>
-</html>
+
+    }
+);
+
+</script>
