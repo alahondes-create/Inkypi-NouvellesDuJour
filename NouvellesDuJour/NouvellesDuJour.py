@@ -4,7 +4,7 @@ import json
 import feedparser
 import requests
 
-from mistralai import Mistral
+
 from plugins.base_plugin import BasePlugin
 
 
@@ -155,7 +155,6 @@ class NouvellesDuJour(BasePlugin):
         kids_filter
     ):
 
-        client = Mistral(api_key=api_key)
 
         formatted_news = "\n".join(
             f"- {a['title']} ({a['source']})"
@@ -190,30 +189,35 @@ Tu dois produire :
 
 Ne mentionne pas la liste brute des articles.
 """
+        try:
+            url = "https://api.mistral.ai/v1/chat/completions"
+            response = requests.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "mistral-medium-latest",
+                    "temperature": 0.7,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "Tu es un journaliste professionnel."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                },
+                timeout=120
+            )
 
-        response = requests.post(
-            "https://api.mistral.ai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "mistral-medium-latest",
-                "temperature": 0.7,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "Tu es un journaliste professionnel."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-            },
-            timeout=120
-        )
+            response.raise_for_status()
 
-        response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
 
-        return response.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(f"Mistral API Error: {e}")
+            return None
