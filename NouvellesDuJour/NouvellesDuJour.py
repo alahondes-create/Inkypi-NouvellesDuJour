@@ -6,6 +6,8 @@ import requests
 import logging
 from plugins.base_plugin.base_plugin import BasePlugin
 
+from InkyPi.scripts.test_plugin import plugin_settings
+
 logger = logging.getLogger(__name__)
 CACHE_DIR = Path(__file__).parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
@@ -67,19 +69,18 @@ class NouvellesDuJour(BasePlugin):
             topics,
             kids_filter
         )
-        dimensions=device_config.get_resolution()
-        image= self.render_image(
-            dimensions,
-            html_file="render/digest.html",
-            css_file="render/digest.css",
-            template_params={
-                "summary": summary,
-                "date": datetime.now().strftime("%d/%m/%Y"),
-                "large": dimensions,
-                "plugin_settings": self.plugin_settings
-            }
-        )
+        dimensions=device_config.get_config().resolution
         if not image:
+            image= self.render_image(
+                dimensions,
+                html_file="render/digest.html",
+                css_file="render/digest.css",
+                template_params={
+                    "summary": summary,
+                    "date": datetime.now().strftime("%d/%m/%Y"),
+                    "plugin_settings": plugin_settings
+                }
+            )
             raise RuntimeError("Failed to take screenshot,please check logs.")
         return image
 
