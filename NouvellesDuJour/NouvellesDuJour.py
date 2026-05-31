@@ -59,28 +59,35 @@ class NouvellesDuJour(BasePlugin):
         topics = settings.get("topics", "")
         kids_filter = settings.get("kids_filter", False)
 
-        articles = self.fetch_google_news(topics)
+        #articles = self.fetch_google_news(topics)
         logger.debug(f"Found {len(articles)} articles")
-        summary = self.get_or_create_summary(
-            api_key,
-            articles,
-            word_count,
-            style,
-            topics,
-            kids_filter
+        #summary = self.get_or_create_summary(
+        #     api_key,
+        #     articles,
+        #     word_count,
+        #     style,
+        #     topics,
+        #     kids_filter
+        # )
+        dimensions = device_config.get_resolution()
+        if device_config.get_config("orientation") == "vertical":
+            dimensions = dimensions[::-1]
+
+        #template_params["plugin_settings"] = settings
+
+        image= self.render_image(
+            dimensions,
+            html_file="render/digest.html",
+            css_file="render/digest.css",
+            template_params={
+                "summary": summary,
+                "date": datetime.now().strftime("%d/%m/%Y"),
+                "plugin_settings": settings
+            }
         )
-        dimensions=device_config.get_config().resolution
+
+
         if not image:
-            image= self.render_image(
-                dimensions,
-                html_file="render/digest.html",
-                css_file="render/digest.css",
-                template_params={
-                    "summary": summary,
-                    "date": datetime.now().strftime("%d/%m/%Y"),
-                    "plugin_settings": plugin_settings
-                }
-            )
             raise RuntimeError("Failed to take screenshot,please check logs.")
         return image
 
