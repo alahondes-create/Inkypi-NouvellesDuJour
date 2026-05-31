@@ -1,21 +1,95 @@
 {% extends "plugin.html" %}
 
 {% block content %}
+<style>
+    /* Réinitialisation des marges et padding */
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
 
-<div class="page">
+    /* Conteneur principal */
+    .container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+        padding: 5px;
+        box-sizing: border-box;
+    }
 
-    <div class="header">
-        <div class="title">🗞️ Journal du Jour</div>
-        <div class="date">{{ date }}</div>
-    </div>
+    /* Titre du thème */
+    .theme-title {
+        font-size: calc(2.5vh + 1vw);
+        font-weight: bold;
+        margin-top: 10px;
+        margin-bottom: 5px;
+        padding: 3px;
+        text-align: center;
+        border-radius: 3px;
+        color: white;
+    }
 
-  <div class="news-container">
-    <!-- Exemple : afficher une liste de news -->
-    {% for item in news_items %}
-      <div class="news-item">{{ item.title }}</div>
+    /* Couleurs par thème */
+    .theme-politique { background-color: #8B0000; } /* Rouge foncé */
+    .theme-economie { background-color: #228B22; } /* Vert foncé */
+    .theme-technologie { background-color: #006400; } /* Vert très foncé */
+    .theme-sante { background-color: #4169E1; } /* Bleu royal */
+    .theme-societe { background-color: #FF8C00; } /* Orange */
+    .theme-international { background-color: #800080; } /* Violet */
+
+    /* Article */
+    .article {
+        font-size: calc(1.8vh + 0.8vw);
+        margin-bottom: 8px;
+        padding: 4px;
+        background-color: white;
+        border-radius: 2px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        line-height: 1.4;
+        text-align: justify;
+    }
+
+    /* Titre de l'article */
+    .article-title {
+        font-weight: bold;
+        margin-bottom: 3px;
+        font-size: calc(2vh + 0.5vw);
+    }
+
+    /* Séparateur entre thèmes */
+    .theme-separator {
+        height: 1px;
+        background-color: #ccc;
+        margin: 5px 0;
+    }
+</style>
+
+<div class="container">
+    {% for theme, articles in news_by_theme.items() %}
+        <!-- Titre du thème avec couleur -->
+        <div class="theme-title theme-{{ theme|lower }}">
+            {{ theme|upper }}
+        </div>
+
+        <!-- Articles du thème -->
+        {% for article in articles %}
+            <div class="article">
+                <div class="article-title">{{ article.title }}</div>
+                <div>{{ article.summary }}</div>
+            </div>
+        {% endfor %}
+
+        <!-- Séparateur (sauf pour le dernier thème) -->
+        {% if not loop.last %}
+            <div class="theme-separator"></div>
+        {% endif %}
     {% endfor %}
-  </div>
-
 </div>
-
 {% endblock %}

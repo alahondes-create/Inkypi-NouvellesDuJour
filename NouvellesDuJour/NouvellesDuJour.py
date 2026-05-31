@@ -5,8 +5,8 @@ import feedparser
 import requests
 import logging
 from plugins.base_plugin.base_plugin import BasePlugin
+from collections import defaultdict
 
-from InkyPi.scripts.test_plugin import plugin_settings
 
 logger = logging.getLogger(__name__)
 CACHE_DIR = Path(__file__).parent / "cache"
@@ -59,30 +59,36 @@ class NouvellesDuJour(BasePlugin):
         topics = settings.get("topics", "")
         kids_filter = settings.get("kids_filter", False)
 
-        #articles = self.fetch_google_news(topics)
+        articles = self.fetch_google_news(topics)
         logger.debug(f"Found {len(articles)} articles")
-        #summary = self.get_or_create_summary(
-        #     api_key,
-        #     articles,
-        #     word_count,
-        #     style,
-        #     topics,
-        #     kids_filter
-        # )
+        summary = self.get_or_create_summary(
+             api_key,
+             articles,
+             word_count,
+             style,
+             topics,
+             kids_filter
+         )
+        #Regroupement par thème des informations
+        for article in summary:
+            theme=article.get("theme","Divers")
+            news_by_theme[theme].append(article)
+
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
             dimensions = dimensions[::-1]
 
         #template_params["plugin_settings"] = settings
-
+        #summary="toto"
         image= self.render_image(
             dimensions,
-            html_file="render/digest.html",
-            css_file="render/digest.css",
+            html_file="digest.html",
+            css_file="digest.css",
             template_params={
                 "summary": summary,
                 "date": datetime.now().strftime("%d/%m/%Y"),
-                "plugin_settings": settings
+                "plugin_settings": settings,
+                "news_by_theme":dict(news_by_theme)
             }
         )
 
@@ -139,6 +145,8 @@ class NouvellesDuJour(BasePlugin):
         cache = load_cache()
 
         if cache and cache.get("date") == today:
+            logger.debug(f"Lecture du cache d aujourd'hui : {cache.get("date")}")
+            logger.debug(f"Sommaire de l'actualité d'aujourdhui: {cache["summary"]}")
             return cache["summary"]
 
         summary = self.call_mistral(
