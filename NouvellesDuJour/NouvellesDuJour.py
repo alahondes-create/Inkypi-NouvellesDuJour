@@ -75,12 +75,12 @@ class NouvellesDuJour(BasePlugin):
             template_params={
                 "summary": summary,
                 "date": datetime.now().strftime("%d/%m/%Y"),
-                "large": device_config.get_config.resolution()
-            }
+                "large": dimensions,
+                "plugin_settings": self.plugin_settings            }
         )
-	    if not image:
-		    raise RuntimeError("Failed to take screenshot,please check logs.")
-	    return image
+        if not image:
+            raise RuntimeError("Failed to take screenshot,please check logs.")
+        return image
 
     # -------------------------
     # GOOGLE NEWS RSS
