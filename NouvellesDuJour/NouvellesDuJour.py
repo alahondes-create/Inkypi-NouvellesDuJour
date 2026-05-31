@@ -13,7 +13,7 @@ CACHE_DIR = Path(__file__).parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
 CACHE_FILE = CACHE_DIR / "daily_summary.json"
-
+CACHE_FILE_GOOGLE= CACHE_DIR / "google_output.json"
 
 # -------------------------
 # CACHE HELPERS
@@ -113,6 +113,9 @@ class NouvellesDuJour(BasePlugin):
         url = f"{base_url}{query}&hl=fr&gl=FR&ceid=FR:fr"
 
         feed = feedparser.parse(url)
+        with open(CACHE_FILE_GOOGLE, "w", encoding="utf-8") as f:
+            logger.debug("Saving cache")
+            json.dump(feed, f, ensure_ascii=False, indent=2)
 
         articles = []
 
