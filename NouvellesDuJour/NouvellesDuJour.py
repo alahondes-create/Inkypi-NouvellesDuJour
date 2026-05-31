@@ -78,8 +78,8 @@ class NouvellesDuJour(BasePlugin):
                 "large": dimensions,
                 "plugin_settings": self.plugin_settings            }
         )
-        if not image:
-            raise RuntimeError("Failed to take screenshot,please check logs.")
+        #if not image:
+         #   raise RuntimeError("Failed to take screenshot,please check logs.")
         return image
 
     # -------------------------
