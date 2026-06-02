@@ -11,13 +11,12 @@
         font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
-        background-color: #f8f8f8; /* Fond clair pour e-Ink */
-        color: #000; /* Texte noir */
+        background-color: #f8f8f8;
+        color: #000;
         overflow: hidden;
         box-sizing: border-box;
     }
 
-    /* Conteneur principal */
     .container {
         display: flex;
         flex-direction: column;
@@ -25,84 +24,86 @@
         width: 100%;
         padding: 10px;
         box-sizing: border-box;
-        gap: 12px; /* Espacement entre les articles */
+        gap: 8px;
     }
 
-    /* Titre principal (optionnel) */
+    /* Titre principal */
     .main-title {
-        font-size: calc(3vh + 1vw);
+        font-size: calc(2.5vh + 1vw);
         font-weight: bold;
         text-align: center;
         margin-bottom: 10px;
-        color: #2c3e50; /* Bleu foncé */
-        border-bottom: 2px solid #3498db; /* Bleu */
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
         padding-bottom: 5px;
     }
 
-    /* Carte d'article */
-    .article {
+    /* Conteneur pour un sujet (avec couleur de fond) */
+    .subject-container {
         background-color: white;
         border-radius: 5px;
-        padding: 10px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #3498db; /* Bordure colorée à gauche */
-        flex: 1; /* Prend toute la place disponible */
-        min-height: 15%; /* Hauteur minimale pour éviter les cartes trop petites */
-        display: flex;
-        flex-direction: column;
+        padding: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 10px;
     }
 
-    /* Titre de l'article */
-    .article-title {
-        font-size: calc(2.2vh + 0.8vw);
+    /* Titre du sujet (entre **) */
+    .subject-title {
+        font-size: calc(2vh + 0.8vw);
         font-weight: bold;
-        margin-bottom: 8px;
-        color: #2980b9; /* Bleu */
+        margin-bottom: 6px;
+        color: #2c3e50;
     }
 
-    /* Résumé de l'article */
-    .article-summary {
+    /* Contenu du sujet */
+    .subject-content {
         font-size: calc(1.8vh + 0.5vw);
         line-height: 1.5;
-        flex-grow: 1; /* Prend tout l'espace restant */
+        color: #333;
         text-align: justify;
-        color: #333; /* Gris foncé */
     }
 
-    /* Séparateur entre articles */
-    .article-separator {
-        height: 1px;
-        background: linear-gradient(to right, transparent, #3498db, transparent);
-        margin: 5px 0;
-    }
+    /* Couleurs de fond pour les sujets (alternance) */
+    .subject-0 { background-color: #fff; border-left: 4px solid #3498db; } /* Bleu */
+    .subject-1 { background-color: #fff; border-left: 4px solid #2ecc71; } /* Vert */
+    .subject-2 { background-color: #fff; border-left: 4px solid #e74c3c; } /* Rouge */
+    .subject-3 { background-color: #fff; border-left: 4px solid #f39c12; } /* Orange */
+    .subject-4 { background-color: #fff; border-left: 4px solid #9b59b6; } /* Violet */
 
-    /* Pied de page (optionnel) */
+    /* Pied de page */
     .footer {
         font-size: calc(1.2vh + 0.3vw);
         text-align: center;
-        color: #7f8c8d; /* Gris */
-        margin-top: auto; /* Pousse le footer en bas */
+        color: #7f8c8d;
+        margin-top: auto;
         padding: 5px;
     }
 </style>
 
 <div class="container">
-    <!-- Titre principal (optionnel) -->
+    <!-- Titre principal -->
     <div class="main-title">Actualités du jour</div>
 
     <!-- Boucle sur les articles -->
-    {% for article in news_items %}
-        <div class="article">
-            <div class="article-title">
-                {{ article.title if article.title else "Actualité" }}
-            </div>
-            <div class="article-summary">
-                {{ article.summary if article.summary else article.text }}
-            </div>
-        </div>
-        <!-- Séparateur (sauf pour le dernier article) -->
+    {% for article in summary %}
+        <!-- Diviser le contenu en sujets (séparés par **) -->
+        {% set subjects = article.summary.split('**') %}
+        {% for i in range(0, subjects|length, 2) %}
+            {% if i+1 < subjects|length %}
+                <!-- Conteneur du sujet avec couleur alternée -->
+                <div class="subject-container subject-{{ loop.index0 % 5 }}">
+                    <!-- Titre du sujet (entre **) -->
+                    <div class="subject-title">{{ subjects[i+1] }}</div>
+                    <!-- Contenu du sujet (après le **) -->
+                    <div class="subject-content">
+                        {{ subjects[i+2] if i+2 < subjects|length else '' }}
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+        <!-- Séparateur entre articles -->
         {% if not loop.last %}
-            <div class="article-separator"></div>
+            <div style="height: 1px; background: #ccc; margin: 5px 0;"></div>
         {% endif %}
     {% endfor %}
 

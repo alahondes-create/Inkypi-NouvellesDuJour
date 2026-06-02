@@ -69,10 +69,6 @@ class NouvellesDuJour(BasePlugin):
              topics,
              kids_filter
          )
-        #Regroupement par thème des informations
-        for article in summary:
-            theme=article.get("theme","Divers")
-            news_by_theme[theme].append(article)
 
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
@@ -88,7 +84,7 @@ class NouvellesDuJour(BasePlugin):
                 "summary": summary,
                 "date": datetime.now().strftime("%d/%m/%Y"),
                 "plugin_settings": settings,
-                "news_by_theme":dict(news_by_theme)
+
             }
         )
 
