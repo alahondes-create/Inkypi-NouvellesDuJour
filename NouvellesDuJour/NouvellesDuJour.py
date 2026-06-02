@@ -114,7 +114,7 @@ class NouvellesDuJour(BasePlugin):
 
         feed = feedparser.parse(url)
         with open(CACHE_FILE_GOOGLE, "w", encoding="utf-8") as f:
-            logger.debug("Saving cache")
+            logger.debug("Saving cache google news")
             json.dump(feed, f, ensure_ascii=False, indent=2)
 
         articles = []
@@ -214,6 +214,13 @@ Tu dois produire :
 2. Un résumé structuré des actualités importantes
 3. Une synthèse claire et fluide
 
+Le résultat doit être structurée de la façon:
+news_item=[
+    {"title": Titre 1, "summary": summary 1},
+    {"title": Titre 2, "summary": summary 2},
+.....
+]
+
 Ne mentionne pas la liste brute des articles.
 """
         logger.debug(f"prompt de requete vers Mistral: {prompt}")
@@ -244,7 +251,9 @@ Ne mentionne pas la liste brute des articles.
 
             response.raise_for_status()
             logger.debug(f"Mistral response: {response.json()["choices"][0]["message"]["content"]}")
-            return response.json()["choices"][0]["message"]["content"]
+            logger.debug(f"Mistral response 2: {response}")
+            return response
+            #return response.json()["choices"][0]["message"]["content"]
 
         except Exception as e:
             logger.error(f"Mistral API Error: {e}")

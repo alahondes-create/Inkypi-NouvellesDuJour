@@ -2,16 +2,19 @@
 
 {% block content %}
 <style>
-    /* Réinitialisation des marges et padding */
+    /* Réinitialisation et dimensions pleines */
     body {
         margin: 0;
         padding: 0;
-        font-family: Arial, sans-serif;
         height: 100vh;
         width: 100vw;
+        font-family: Arial, sans-serif;
         display: flex;
         flex-direction: column;
+        background-color: #f8f8f8; /* Fond clair pour e-Ink */
+        color: #000; /* Texte noir */
         overflow: hidden;
+        box-sizing: border-box;
     }
 
     /* Conteneur principal */
@@ -20,76 +23,90 @@
         flex-direction: column;
         height: 100%;
         width: 100%;
-        padding: 5px;
+        padding: 10px;
         box-sizing: border-box;
+        gap: 12px; /* Espacement entre les articles */
     }
 
-    /* Titre du thème */
-    .theme-title {
-        font-size: calc(2.5vh + 1vw);
+    /* Titre principal (optionnel) */
+    .main-title {
+        font-size: calc(3vh + 1vw);
         font-weight: bold;
-        margin-top: 10px;
-        margin-bottom: 5px;
-        padding: 3px;
         text-align: center;
-        border-radius: 3px;
-        color: white;
+        margin-bottom: 10px;
+        color: #2c3e50; /* Bleu foncé */
+        border-bottom: 2px solid #3498db; /* Bleu */
+        padding-bottom: 5px;
     }
 
-    /* Couleurs par thème */
-    .theme-politique { background-color: #8B0000; } /* Rouge foncé */
-    .theme-economie { background-color: #228B22; } /* Vert foncé */
-    .theme-technologie { background-color: #006400; } /* Vert très foncé */
-    .theme-sante { background-color: #4169E1; } /* Bleu royal */
-    .theme-societe { background-color: #FF8C00; } /* Orange */
-    .theme-international { background-color: #800080; } /* Violet */
-
-    /* Article */
+    /* Carte d'article */
     .article {
-        font-size: calc(1.8vh + 0.8vw);
-        margin-bottom: 8px;
-        padding: 4px;
         background-color: white;
-        border-radius: 2px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        line-height: 1.4;
-        text-align: justify;
+        border-radius: 5px;
+        padding: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #3498db; /* Bordure colorée à gauche */
+        flex: 1; /* Prend toute la place disponible */
+        min-height: 15%; /* Hauteur minimale pour éviter les cartes trop petites */
+        display: flex;
+        flex-direction: column;
     }
 
     /* Titre de l'article */
     .article-title {
+        font-size: calc(2.2vh + 0.8vw);
         font-weight: bold;
-        margin-bottom: 3px;
-        font-size: calc(2vh + 0.5vw);
+        margin-bottom: 8px;
+        color: #2980b9; /* Bleu */
     }
 
-    /* Séparateur entre thèmes */
-    .theme-separator {
+    /* Résumé de l'article */
+    .article-summary {
+        font-size: calc(1.8vh + 0.5vw);
+        line-height: 1.5;
+        flex-grow: 1; /* Prend tout l'espace restant */
+        text-align: justify;
+        color: #333; /* Gris foncé */
+    }
+
+    /* Séparateur entre articles */
+    .article-separator {
         height: 1px;
-        background-color: #ccc;
+        background: linear-gradient(to right, transparent, #3498db, transparent);
         margin: 5px 0;
+    }
+
+    /* Pied de page (optionnel) */
+    .footer {
+        font-size: calc(1.2vh + 0.3vw);
+        text-align: center;
+        color: #7f8c8d; /* Gris */
+        margin-top: auto; /* Pousse le footer en bas */
+        padding: 5px;
     }
 </style>
 
 <div class="container">
-    {% for theme, articles in news_by_theme.items() %}
-        <!-- Titre du thème avec couleur -->
-        <div class="theme-title theme-{{ theme|lower }}">
-            {{ theme|upper }}
-        </div>
+    <!-- Titre principal (optionnel) -->
+    <div class="main-title">Actualités du jour</div>
 
-        <!-- Articles du thème -->
-        {% for article in articles %}
-            <div class="article">
-                <div class="article-title">{{ article.title }}</div>
-                <div>{{ article.summary }}</div>
+    <!-- Boucle sur les articles -->
+    {% for article in news_items %}
+        <div class="article">
+            <div class="article-title">
+                {{ article.title if article.title else "Actualité" }}
             </div>
-        {% endfor %}
-
-        <!-- Séparateur (sauf pour le dernier thème) -->
+            <div class="article-summary">
+                {{ article.summary if article.summary else article.text }}
+            </div>
+        </div>
+        <!-- Séparateur (sauf pour le dernier article) -->
         {% if not loop.last %}
-            <div class="theme-separator"></div>
+            <div class="article-separator"></div>
         {% endif %}
     {% endfor %}
+
+    <!-- Pied de page -->
+    <div class="footer">Mise à jour : {{ current_time if current_time else "Aujourd'hui" }}</div>
 </div>
 {% endblock %}
