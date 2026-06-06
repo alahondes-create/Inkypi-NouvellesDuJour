@@ -85,7 +85,7 @@
     <div class="main-title">Actualités du jour</div>
 
     <!-- Boucle sur les articles -->
-    {% for article in summary %}
+    {% for article in summary_mistral %}
         <!-- Diviser le contenu en sujets (séparés par **) -->
         {% set subjects = article.summary.split('**') %}
         {% for i in range(0, subjects|length, 2) %}

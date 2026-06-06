@@ -81,7 +81,7 @@ class NouvellesDuJour(BasePlugin):
             html_file="digest.html",
             css_file="digest.css",
             template_params={
-                "summary": summary,
+                "summary_mistral": summary,
                 "date": datetime.now().strftime("%d/%m/%Y"),
                 "plugin_settings": settings,
 
@@ -169,72 +169,78 @@ class NouvellesDuJour(BasePlugin):
     # -------------------------
 
     def call_mistral(
-        self,
-        api_key,
-        articles,
-        word_count,
-        style,
-        topics,
-        kids_filter
+            self,
+            api_key,
+            articles,
+            word_count,
+            style,
+            topics,
+            kids_filter
     ):
         logger.debug("Calling Mistral")
 
+        # Formatage des articles pour le prompt
         formatted_news = "\n".join(
-            f"- {a['title']} ({a['source']})"
+            f"- {a['title']} ({a['source']}) : {a.get('description', '')}"
             for a in articles
         )
 
+        # Instruction pour le filtre enfant
         kid_instruction = ""
         if kids_filter:
             kid_instruction = (
                 "Le contenu doit être adapté aux enfants, "
-                "sans violence ni sujets anxiogènes."
+                "sans violence ni sujets anxiogènes. "
             )
 
+        # Prompt strict pour un format JSON
         prompt = f"""
-Tu es un rédacteur en chef d'un journal quotidien.
+    Tu es un rédacteur en chef. Voici les actualités du jour :
 
-Voici les actualités du jour :
+    {formatted_news}
 
-{formatted_news}
+    **Consignes strictes :**
+    - Longueur totale : environ {word_count} mots.
+    - Style : {style}.
+    - Centres d'intérêt prioritaires : {topics}.
+    {kid_instruction}
 
-Consignes :
-- Longueur : {word_count} mots
-- Style : {style}
-- Centres d'intérêt : {topics}
+    **Format de sortie obligatoire (JSON) :**
+    Réponds UNIQUEMENT avec un objet JSON structuré comme ceci :
+    {{
+      "Centre d'intérêt 1": {{
+        "Titre de l'actualité 1": "Résumé concis de l'actualité 1",
+        "Titre de l'actualité 2": "Résumé concis de l'actualité 2"
+      }},
+      "Centre d'intérêt 2": {{
+        "Titre de l'actualité 3": "Résumé concis de l'actualité 3"
+      }}
+    }}
 
-{kid_instruction}
+    **Règles :**
+    - Ne pas inclure de texte en dehors du JSON.
+    - Les clés doivent être les centres d'intérêt ou les titres des actualités.
+    - Les valeurs doivent être des résumés en français, clairs et fluides.
+    - Si un centre d'intérêt n'a pas d'actualité, ne l'inclus pas.
+    """
 
-Tu dois produire :
-1. Un titre de une
-2. Un résumé structuré des actualités importantes
-3. Une synthèse claire et fluide
+        logger.debug(f"Prompt envoyé à Mistral : {prompt}")
 
-Le résultat doit être structurée de la façon:
-news_item=[
-    {"title": Titre 1, "summary": summary 1},
-    {"title": Titre 2, "summary": summary 2},
-.....
-]
-
-Ne mentionne pas la liste brute des articles.
-"""
-        logger.debug(f"prompt de requete vers Mistral: {prompt}")
         try:
             url = "https://api.mistral.ai/v1/chat/completions"
             response = requests.post(
-                "https://api.mistral.ai/v1/chat/completions",
+                url,
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
                     "model": "mistral-medium-latest",
-                    "temperature": 0.7,
+                    "temperature": 0.3,  # Temp plus basse pour un format strict
                     "messages": [
                         {
                             "role": "system",
-                            "content": "Tu es un journaliste professionnel."
+                            "content": "Tu es un journaliste professionnel. Réponds UNIQUEMENT en JSON valide, sans commentaire ni texte supplémentaire."
                         },
                         {
                             "role": "user",
@@ -246,11 +252,27 @@ Ne mentionne pas la liste brute des articles.
             )
 
             response.raise_for_status()
-            logger.debug(f"Mistral response: {response.json()["choices"][0]["message"]["content"]}")
-            logger.debug(f"Mistral response 2: {response}")
-            return response
-            #return response.json()["choices"][0]["message"]["content"]
+            raw_response = response.json()["choices"][0]["message"]["content"]
+
+            # Vérification que la réponse est du JSON valide
+            try:
+                import json
+                # On nettoie la réponse pour extraire le JSON (au cas où Mistral ajouterait du texte)
+                json_start = raw_response.find("{")
+                json_end = raw_response.rfind("}") + 1
+                json_str = raw_response[json_start:json_end]
+                parsed_json = json.loads(json_str)
+                logger.debug(f"Réponse Mistral (JSON) : {parsed_json}")
+                return parsed_json
+            except json.JSONDecodeError as e:
+                logger.error(f"La réponse de Mistral n'est pas du JSON valide : {e}\nRéponse brute : {raw_response}")
+                # Retourne un JSON par défaut en cas d'erreur
+                return {
+                    "Erreur": {
+                        "Format invalide": "La réponse de Mistral n'a pas pu être parsée en JSON. Vérifiez le prompt ou la réponse brute."
+                    }
+                }
 
         except Exception as e:
-            logger.error(f"Mistral API Error: {e}")
+            logger.error(f"Erreur API Mistral : {e}")
             return None
