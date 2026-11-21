@@ -2,6 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote_plus
 import json
+import time
 import feedparser
 import requests
 import logging
@@ -284,44 +285,81 @@ class NouvellesDuJour(BasePlugin):
 
         logger.debug("Prompt envoyé à Mistral (%d caractères)", len(prompt))
 
-        try:
-            response = requests.post(
-                MISTRAL_URL,
-                headers={
-                    "Authorization": "Bearer %s" % api_key,
-                    "Content-Type": "application/json",
+        payload = {
+            "model": "mistral-medium-latest",
+            "temperature": 0.3,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Tu es un journaliste professionnel. Réponds UNIQUEMENT en JSON valide, sans commentaire ni texte supplémentaire.",
                 },
-                json={
-                    "model": "mistral-medium-latest",
-                    "temperature": 0.3,
-                    "response_format": {"type": "json_object"},
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "Tu es un journaliste professionnel. Réponds UNIQUEMENT en JSON valide, sans commentaire ni texte supplémentaire.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                },
-                timeout=120,
-            )
-            response.raise_for_status()
-            raw_response = response.json()["choices"][0]["message"]["content"]
+                {"role": "user", "content": prompt},
+            ],
+        }
+        headers = {
+            "Authorization": "Bearer %s" % api_key,
+            "Content-Type": "application/json",
+        }
 
-            # Extraction robuste du JSON (au cas où du texte entourerait l'objet)
-            json_start = raw_response.find("{")
-            json_end = raw_response.rfind("}") + 1
-            if json_start < 0 or json_end <= json_start:
-                logger.error("Réponse Mistral sans JSON : %s", raw_response[:500])
+        # Appel avec retry sur les erreurs transitoires (429 rate-limit, 5xx)
+        max_attempts = 4
+        response = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = requests.post(
+                    MISTRAL_URL,
+                    headers=headers,
+                    json=payload,
+                    timeout=120,
+                )
+            except requests.RequestException as e:
+                logger.error("Erreur réseau vers Mistral (tentative %d/%d) : %s", attempt, max_attempts, e)
+                response = None
+
+            if response is not None and response.status_code == 200:
+                break
+            if response is not None and response.status_code in (429, 500, 502, 503, 504):
+                # Respecter le Retry-After renvoyé par Mistral, sinon backoff progressif
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    delay = float(retry_after) if retry_after else min(15 * attempt, 60)
+                except (TypeError, ValueError):
+                    delay = min(15 * attempt, 60)
+                logger.warning(
+                    "Mistral a répondu %d (tentative %d/%d), nouvel essai dans %ds",
+                    response.status_code, attempt, max_attempts, int(delay),
+                )
+                time.sleep(delay)
+                response = None
+                continue
+            break  # autre code (401, 403...) : inutile de réessayer
+
+        if response is None or response.status_code != 200:
+            try:
+                response.raise_for_status()
+            except Exception:
+                # message déjà logué dans la boucle ; lever une exception propre
+                logger.error("Echec de l'appel Mistral après %d tentatives", max_attempts)
                 return None
 
+        try:
+            raw_response = response.json()["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, ValueError) as e:
+            logger.error("Réponse Mistral inattendue : %s", e)
+            return None
+
+        # Extraction robuste du JSON (au cas où du texte entourerait l'objet)
+        json_start = raw_response.find("{")
+        json_end = raw_response.rfind("}") + 1
+        if json_start < 0 or json_end <= json_start:
+            logger.error("Réponse Mistral sans JSON : %s", raw_response[:500])
+            return None
+
+        try:
             parsed_json = json.loads(raw_response[json_start:json_end])
             logger.debug("Réponse Mistral parsée en JSON (%d thèmes)", len(parsed_json))
             return parsed_json
-
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
+        except json.JSONDecodeError as e:
             logger.error("Réponse Mistral non exploitable : %s", e)
-            return None
-        except requests.RequestException as e:
-            logger.error("Erreur API Mistral : %s", e)
             return None
