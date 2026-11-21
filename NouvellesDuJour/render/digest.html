@@ -1,113 +1,40 @@
 {% extends "plugin.html" %}
 
 {% block content %}
-<style>
-    /* Réinitialisation et dimensions pleines */
-    body {
-        margin: 0;
-        padding: 0;
-        height: 100vh;
-        width: 100vw;
-        font-family: Arial, sans-serif;
-        display: flex;
-        flex-direction: column;
-        background-color: #f8f8f8;
-        color: #000;
-        overflow: hidden;
-        box-sizing: border-box;
-    }
+<div class="page">
 
-    .container {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        width: 100%;
-        padding: 10px;
-        box-sizing: border-box;
-        gap: 8px;
-    }
+    <header class="masthead">
+        <div class="masthead-brand">
+            <span class="brand-mark"></span>
+            <h1 class="masthead-title">Nouvelles du Jour</h1>
+        </div>
+        <div class="masthead-date">{{ date }}</div>
+    </header>
 
-    /* Titre principal */
-    .main-title {
-        font-size: calc(2.5vh + 1vw);
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 10px;
-        color: #2c3e50;
-        border-bottom: 2px solid #3498db;
-        padding-bottom: 5px;
-    }
-
-    /* Conteneur pour un sujet (avec couleur de fond) */
-    .subject-container {
-        background-color: white;
-        border-radius: 5px;
-        padding: 8px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        margin-bottom: 10px;
-    }
-
-    /* Titre du sujet (entre **) */
-    .subject-title {
-        font-size: calc(2vh + 0.8vw);
-        font-weight: bold;
-        margin-bottom: 6px;
-        color: #2c3e50;
-    }
-
-    /* Contenu du sujet */
-    .subject-content {
-        font-size: calc(1.8vh + 0.5vw);
-        line-height: 1.5;
-        color: #333;
-        text-align: justify;
-    }
-
-    /* Couleurs de fond pour les sujets (alternance) */
-    .subject-0 { background-color: #fff; border-left: 4px solid #3498db; } /* Bleu */
-    .subject-1 { background-color: #fff; border-left: 4px solid #2ecc71; } /* Vert */
-    .subject-2 { background-color: #fff; border-left: 4px solid #e74c3c; } /* Rouge */
-    .subject-3 { background-color: #fff; border-left: 4px solid #f39c12; } /* Orange */
-    .subject-4 { background-color: #fff; border-left: 4px solid #9b59b6; } /* Violet */
-
-    /* Pied de page */
-    .footer {
-        font-size: calc(1.2vh + 0.3vw);
-        text-align: center;
-        color: #7f8c8d;
-        margin-top: auto;
-        padding: 5px;
-    }
-</style>
-
-<div class="container">
-    <!-- Titre principal -->
-    <div class="main-title">Actualités du jour</div>
-
-    <!-- Boucle sur les articles -->
-    {% for article in summary_mistral %}
-        <!-- Diviser le contenu en sujets (séparés par **) -->
-        {% set subjects = article.summary.split('**') %}
-        {% for i in range(0, subjects|length, 2) %}
-            {% if i+1 < subjects|length %}
-                <!-- Conteneur du sujet avec couleur alternée -->
-                <div class="subject-container subject-{{ loop.index0 % 5 }}">
-                    <!-- Titre du sujet (entre **) -->
-                    <div class="subject-title">{{ subjects[i+1] }}</div>
-                    <!-- Contenu du sujet (après le **) -->
-                    <div class="subject-content">
-                        {{ subjects[i+2] if i+2 < subjects|length else '' }}
-                    </div>
-                </div>
-            {% endif %}
+    <main class="board">
+        {% for theme, articles in summary.items() %}
+        <section class="card style-{{ loop.index % 4 }}">
+            <header class="card-head">
+                <span class="card-chip">{{ loop.index }}</span>
+                <h2 class="card-title">{{ theme }}</h2>
+            </header>
+            <div class="card-body">
+                {% for title, content in articles.items() %}
+                <article class="article">
+                    <h3 class="article-title">{{ title }}</h3>
+                    <p class="article-excerpt">{{ content }}</p>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
         {% endfor %}
-        <!-- Séparateur entre articles -->
-        {% if not loop.last %}
-            <div style="height: 1px; background: #ccc; margin: 5px 0;"></div>
-        {% endif %}
-    {% endfor %}
+    </main>
 
-    <!-- Pied de page -->
-    <div class="footer">Mise à jour : {{ current_time if current_time else "Aujourd'hui" }}</div>
+    <footer class="footline">
+        <span class="foot-label">Synthèse générée par IA</span>
+        <span class="foot-rule"></span>
+        <span class="foot-date">{{ date }}</span>
+    </footer>
+
 </div>
 {% endblock %}

@@ -1,39 +1,73 @@
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote_plus
 import json
 import feedparser
 import requests
 import logging
 from plugins.base_plugin.base_plugin import BasePlugin
-from collections import defaultdict
 
 
 logger = logging.getLogger(__name__)
+
 CACHE_DIR = Path(__file__).parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
 CACHE_FILE = CACHE_DIR / "daily_summary.json"
-CACHE_FILE_GOOGLE= CACHE_DIR / "google_output.json"
+CACHE_FILE_GOOGLE = CACHE_DIR / "google_output.json"
+
+MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions"
+
+
+# -------------------------
+# HELPERS
+# -------------------------
+
+def _today():
+    return datetime.now().strftime("%Y-%m-%d")
+
 
 # -------------------------
 # CACHE HELPERS
 # -------------------------
 
 def load_cache():
-    if CACHE_FILE.exists():
-        try:
-            logger.debug("Loading cache")
-            return json.load(open(CACHE_FILE, "r", encoding="utf-8"))
-        except:
-            logger.debug("No cache")
-            return None
+    """Retourne le résumé du jour (dict) ou None si absent, corrompu ou obsolète."""
+    if not CACHE_FILE.exists():
+        logger.debug("Pas de cache existant")
+        return None
+    try:
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            cache_data = json.load(f)
+    except Exception as e:
+        logger.error("Erreur de chargement du cache: %s", e)
+        _delete_cache_file()
+        return None
+
+    summary = cache_data.get("summary")
+    if cache_data.get("date") == _today() and isinstance(summary, dict):
+        logger.debug("Cache valide pour %s", _today())
+        return summary
+
+    logger.debug("Cache obsolète ou invalide (date: %s)", cache_data.get("date"))
     return None
 
 
-def save_cache(data):
-    with open(CACHE_FILE, "w", encoding="utf-8") as f:
-        logger.debug("Saving cache")
-        json.dump(data, f, ensure_ascii=False, indent=2)
+def save_cache(summary):
+    """Sauvegarde le résumé avec la date du jour (encapsulation faite ici seulement)."""
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"date": _today(), "summary": summary}, f, ensure_ascii=False, indent=2)
+        logger.debug("Cache sauvegardé pour %s", _today())
+    except Exception as e:
+        logger.error("Erreur de sauvegarde du cache: %s", e)
+
+
+def _delete_cache_file():
+    try:
+        CACHE_FILE.unlink()
+    except OSError:
+        pass
 
 
 # -------------------------
@@ -50,48 +84,108 @@ class NouvellesDuJour(BasePlugin):
 
     def generate_image(self, settings, device_config):
         logger.debug("Generating image")
-        api_key = device_config.load_env_key("MISTRAL_API_KEY")
-        if not api_key:
-            raise RuntimeError("MISTRAL_API_KEY manquante")
-        logger.debug("API Key loaded")
-        word_count = int(settings.get("word_count", 500))
-        style = settings.get("style", "journalistique")
-        topics = settings.get("topics", "")
-        kids_filter = settings.get("kids_filter", False)
 
-        articles = self.fetch_google_news(topics)
-        logger.debug(f"Found {len(articles)} articles")
-        summary = self.get_or_create_summary(
-             api_key,
-             articles,
-             word_count,
-             style,
-             topics,
-             kids_filter
-         )
+        summary = load_cache()
+
+        if summary is None:
+            api_key = device_config.load_env_key("MISTRAL_API_KEY")
+            if not api_key:
+                raise RuntimeError("MISTRAL_API_KEY manquante")
+            logger.debug("API Key chargée")
+
+            word_count = self._to_int(settings.get("word_count"), 500)
+            style = settings.get("style") or "journalistique"
+            topics = settings.get("topics") or ""
+            kids_filter = str(settings.get("kids_filter", False)).lower() in ("on", "true", "1", "yes")
+
+            articles = self.fetch_google_news(topics)
+            if not articles:
+                raise RuntimeError("Aucun article récupéré depuis Google News. Vérifiez la connexion du Raspberry Pi.")
+            logger.debug("Trouvé %d articles", len(articles))
+
+            summary = self.call_mistral(api_key, articles, word_count, style, topics, kids_filter)
+            # On ne met en cache qu'un résumé exploitable :
+            # en cas d'échec Mistral, le prochain rafraîchissement réessaiera.
+            if summary is not None:
+                save_cache(summary)
+            else:
+                # Repli : utiliser un ancien cache plutôt qu'un écran vide
+                summary = self._load_stale_cache()
+                if summary is None:
+                    raise RuntimeError("La synthèse Mistral a échoué. Vérifiez les logs du serveur.")
+
+        else:
+            logger.debug("Utilisation du cache du jour")
+
+        summary = self._normalize_summary(summary)
 
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
             dimensions = dimensions[::-1]
 
-        #template_params["plugin_settings"] = settings
-        #summary="toto"
-        image= self.render_image(
+        image = self.render_image(
             dimensions,
             html_file="digest.html",
             css_file="digest.css",
             template_params={
-                "summary_mistral": summary,
+                "summary": summary,
                 "date": datetime.now().strftime("%d/%m/%Y"),
                 "plugin_settings": settings,
-
-            }
+            },
         )
 
-
         if not image:
-            raise RuntimeError("Failed to take screenshot,please check logs.")
+            raise RuntimeError("Failed to take screenshot, please check logs.")
         return image
+
+    # -------------------------
+    # NORMALISATION
+    # -------------------------
+
+    def _normalize_summary(self, summary):
+        """Garantit une structure {theme: {titre: texte}} pour ce qui peut être parcouru en Jinja (texte brut, ancien format, dict imbriqués)."""
+        normalized = {}
+        if not isinstance(summary, dict):
+            return normalized
+        for theme, articles in summary.items():
+            theme = str(theme)
+            if isinstance(articles, dict):
+                normalized[theme] = {
+                    str(title): self._to_text(content)
+                    for title, content in articles.items()
+                }
+            else:
+                # Ancien format (texte brut sous un thème)
+                normalized[theme] = {"Actualités": self._to_text(articles)}
+        return normalized
+
+    def _to_text(self, value):
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            return " ".join(str(v) for v in value)
+        if isinstance(value, dict):
+            return " ".join("%s : %s" % (k, self._to_text(v)) for k, v in value.items())
+        return str(value)
+
+    def _to_int(self, value, default):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _load_stale_cache(self):
+        """Récupère le dernier cache connu, même périmé, en dépannage."""
+        try:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                cache_data = json.load(f)
+            summary = cache_data.get("summary")
+            if isinstance(summary, dict):
+                logger.warning("Utilisation d'un cache périmé (date: %s)", cache_data.get("date"))
+                return summary
+        except Exception:
+            pass
+        return None
 
     # -------------------------
     # GOOGLE NEWS RSS
@@ -102,90 +196,54 @@ class NouvellesDuJour(BasePlugin):
         base_url = "https://news.google.com/rss/search?q="
 
         if topics:
-            query = "+".join(topics.split(","))
+            terms = [t.strip() for t in topics.split(",") if t.strip()]
+            query = "+".join(quote_plus(t) for t in terms)
         else:
-            query = "actualité"
+            query = quote_plus("actualité")
 
-        url = f"{base_url}{query}&hl=fr&gl=FR&ceid=FR:fr"
+        url = "%s%s&hl=fr&gl=FR&ceid=FR:fr" % (base_url, query)
+        logger.debug("URL Google News : %s", url)
 
-        feed = feedparser.parse(url)
-        with open(CACHE_FILE_GOOGLE, "w", encoding="utf-8") as f:
-            logger.debug("Saving cache google news")
-            json.dump(feed, f, ensure_ascii=False, indent=2)
+        try:
+            feed = feedparser.parse(url)
+        except Exception as e:
+            logger.error("Erreur de récupération du flux RSS : %s", e)
+            return []
 
         articles = []
-
         for entry in feed.entries[:25]:
-
+            source = entry.get("source", {})
             articles.append({
-                "title": entry.title,
-                "source": getattr(entry, "source", {}).get("title", ""),
-                "date": getattr(entry, "published", ""),
+                "title": entry.get("title", ""),
+                "source": source.get("title", "") if source else "",
+                "date": entry.get("published", ""),
             })
 
+        # Debug : sauvegarde d'une version allégée (titre + source) pour inspection
+        try:
+            with open(CACHE_FILE_GOOGLE, "w", encoding="utf-8") as f:
+                json.dump({
+                    "date": _today(),
+                    "url": url,
+                    "entries": articles,
+                }, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error("Erreur de sauvegarde du cache Google: %s", e)
+
         return articles
-
-    # -------------------------
-    # CACHE LOGIC
-    # -------------------------
-
-    def get_or_create_summary(
-        self,
-        api_key,
-        articles,
-        word_count,
-        style,
-        topics,
-        kids_filter
-    ):
-
-        today = datetime.now().strftime("%Y-%m-%d")
-
-        cache = load_cache()
-
-        if cache and cache.get("date") == today:
-            logger.debug(f"Lecture du cache d aujourd'hui : {cache.get("date")}")
-            logger.debug(f"Sommaire de l'actualité d'aujourdhui: {cache["summary"]}")
-            return cache["summary"]
-
-        summary = self.call_mistral(
-            api_key,
-            articles,
-            word_count,
-            style,
-            topics,
-            kids_filter
-        )
-
-        save_cache({
-            "date": today,
-            "summary": summary
-        })
-
-        return summary
 
     # -------------------------
     # MISTRAL CALL
     # -------------------------
 
-    def call_mistral(
-            self,
-            api_key,
-            articles,
-            word_count,
-            style,
-            topics,
-            kids_filter
-    ):
-        logger.debug("Calling Mistral")
+    def call_mistral(self, api_key, articles, word_count, style, topics, kids_filter):
+        logger.debug("Appel de Mistral")
 
-        # Formatage des articles pour le prompt
         formatted_news = "\n".join(
-            f"- {a['title']} ({a['source']}) : {a.get('description', '')}"
+            "- %s (%s)" % (a["title"], a["source"])
             for a in articles
         )
 
-        # Instruction pour le filtre enfant
         kid_instruction = ""
         if kids_filter:
             kid_instruction = (
@@ -193,7 +251,6 @@ class NouvellesDuJour(BasePlugin):
                 "sans violence ni sujets anxiogènes. "
             )
 
-        # Prompt strict pour un format JSON
         prompt = f"""
     Tu es un rédacteur en chef. Voici les actualités du jour :
 
@@ -222,57 +279,49 @@ class NouvellesDuJour(BasePlugin):
     - Les clés doivent être les centres d'intérêt ou les titres des actualités.
     - Les valeurs doivent être des résumés en français, clairs et fluides.
     - Si un centre d'intérêt n'a pas d'actualité, ne l'inclus pas.
+    - Limite : 3 à 4 thèmes maximum, 2 à 3 actualités par thème.
     """
 
-        logger.debug(f"Prompt envoyé à Mistral : {prompt}")
+        logger.debug("Prompt envoyé à Mistral (%d caractères)", len(prompt))
 
         try:
-            url = "https://api.mistral.ai/v1/chat/completions"
             response = requests.post(
-                url,
+                MISTRAL_URL,
                 headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
+                    "Authorization": "Bearer %s" % api_key,
+                    "Content-Type": "application/json",
                 },
                 json={
                     "model": "mistral-medium-latest",
-                    "temperature": 0.3,  # Temp plus basse pour un format strict
+                    "temperature": 0.3,
+                    "response_format": {"type": "json_object"},
                     "messages": [
                         {
                             "role": "system",
-                            "content": "Tu es un journaliste professionnel. Réponds UNIQUEMENT en JSON valide, sans commentaire ni texte supplémentaire."
+                            "content": "Tu es un journaliste professionnel. Réponds UNIQUEMENT en JSON valide, sans commentaire ni texte supplémentaire.",
                         },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
+                        {"role": "user", "content": prompt},
+                    ],
                 },
-                timeout=120
+                timeout=120,
             )
-
             response.raise_for_status()
             raw_response = response.json()["choices"][0]["message"]["content"]
 
-            # Vérification que la réponse est du JSON valide
-            try:
-                import json
-                # On nettoie la réponse pour extraire le JSON (au cas où Mistral ajouterait du texte)
-                json_start = raw_response.find("{")
-                json_end = raw_response.rfind("}") + 1
-                json_str = raw_response[json_start:json_end]
-                parsed_json = json.loads(json_str)
-                logger.debug(f"Réponse Mistral (JSON) : {parsed_json}")
-                return parsed_json
-            except json.JSONDecodeError as e:
-                logger.error(f"La réponse de Mistral n'est pas du JSON valide : {e}\nRéponse brute : {raw_response}")
-                # Retourne un JSON par défaut en cas d'erreur
-                return {
-                    "Erreur": {
-                        "Format invalide": "La réponse de Mistral n'a pas pu être parsée en JSON. Vérifiez le prompt ou la réponse brute."
-                    }
-                }
+            # Extraction robuste du JSON (au cas où du texte entourerait l'objet)
+            json_start = raw_response.find("{")
+            json_end = raw_response.rfind("}") + 1
+            if json_start < 0 or json_end <= json_start:
+                logger.error("Réponse Mistral sans JSON : %s", raw_response[:500])
+                return None
 
-        except Exception as e:
-            logger.error(f"Erreur API Mistral : {e}")
+            parsed_json = json.loads(raw_response[json_start:json_end])
+            logger.debug("Réponse Mistral parsée en JSON (%d thèmes)", len(parsed_json))
+            return parsed_json
+
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error("Réponse Mistral non exploitable : %s", e)
+            return None
+        except requests.RequestException as e:
+            logger.error("Erreur API Mistral : %s", e)
             return None

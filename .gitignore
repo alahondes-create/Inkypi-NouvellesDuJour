@@ -179,3 +179,8 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+# Runtime du plugin (regenere)
+NouvellesDuJour/cache/
+NouvellesDuJour/daily_summary.json
+NouvellesDuJour/google_output.json
+NouvellesDuJour/render/daily_summary.json

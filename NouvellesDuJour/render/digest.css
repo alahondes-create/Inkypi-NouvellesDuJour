@@ -1,38 +1,242 @@
-body {
+/* ==========================================================================
+   Nouvelles du Jour — mise en page pour e-paper couleur (7 teintes)
+   Inky Impression / Spectra 6 : noir, blanc, rouge, jaune, vert, bleu, orange
+   Principes : aplats saturés (dithering propre), contrastes forts, zéro
+   dégradé, zéro police distante.
+   ========================================================================== */
+
+:root {
+    /* Palette optimisée e-paper couleur */
+    --ep-white:  #FFFFFF;
+    --ep-black:  #000000;
+    --ep-red:    #E42313;
+    --ep-blue:   #1D41C8;
+    --ep-green:  #00A651;
+    --ep-yellow: #FFD200;
+    --ep-orange: #F16E00;
+}
+
+/* ---------- Structure générale ---------- */
+
+html, body {
     margin: 0;
-    padding: 40px;
-    font-family: Georgia, serif;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    font-family: Helvetica, Arial, sans-serif;
+    background: var(--ep-white);
+    color: var(--ep-black);
 }
 
 .page {
-    width: 100%;
+    display: flex;
+    flex-direction: column;
     height: 100%;
+    box-sizing: border-box;
+    font-size: min(2.1vh, 1.7vw);
 }
 
-.header {
-    text-align: center;
-    border-bottom: 3px solid black;
-    margin-bottom: 25px;
+/* ---------- Bandeau titre (noir / blanc / rouge) ---------- */
+
+.masthead {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--ep-black);
+    color: var(--ep-white);
+    padding: 0.5em 1em;
+    border-bottom: 0.18em solid var(--ep-red);
 }
 
-.title {
-    font-size: 54px;
+.masthead-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.brand-mark {
+    width: 0.8em;
+    height: 0.8em;
+    background: var(--ep-red);
+    display: inline-block;
+}
+
+.masthead-title {
+    margin: 0;
+    font-size: 1.5em;
     font-weight: bold;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
 }
 
-.date {
-    font-size: 22px;
-    margin-top: 10px;
+.masthead-date {
+    font-size: 1em;
+    font-weight: bold;
+    background: var(--ep-yellow);
+    color: var(--ep-black);
+    padding: 0.25em 0.7em;
+    border-radius: 0.3em;
+    white-space: nowrap;
 }
 
-.content {
-    font-size: 24px;
-    line-height: 1.6;
+/* ---------- Grille des thèmes ---------- */
+
+.board {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    gap: 1em;
+    padding: 1em 0;
+    align-content: start;
+    overflow: hidden;
+}
+
+/* Un seul thème : il occupe toute la largeur */
+.card:first-child:nth-last-child(1) {
+    grid-column: 1 / -1;
+}
+
+.card {
+    background: var(--ep-white);
+    border: 0.15em solid var(--ep-black);
+    border-radius: 0.5em;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---------- En-têtes de carte, rotation des couleurs ---------- */
+
+.card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.4em 0.7em;
+}
+
+.card-chip {
+    flex: 0 0 auto;
+    width: 1.3em;
+    height: 1.3em;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1em;
+    font-weight: bold;
+    background: var(--ep-white);
+}
+
+.card-title {
+    margin: 0;
+    font-size: 1.15em;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Thème 1 : rouge (texte blanc) */
+.card.style-1 .card-head { background: var(--ep-red); }
+.card.style-1 .card-title,
+.card.style-1 .card-chip { color: var(--ep-red); }
+
+/* Thème 2 : bleu (texte blanc) */
+.card.style-2 .card-head { background: var(--ep-blue); }
+.card.style-2 .card-title,
+.card.style-2 .card-chip { color: var(--ep-blue); }
+
+/* Thème 3 : vert (texte blanc) */
+.card.style-3 .card-head { background: var(--ep-green); }
+.card.style-3 .card-title,
+.card.style-3 .card-chip { color: var(--ep-green); }
+
+/* Thème 4 : jaune (texte noir) */
+.card.style-4 .card-head { background: var(--ep-yellow); }
+.card.style-4 .card-title,
+.card.style-4 .card-chip { color: var(--ep-black); }
+
+.card.style-0 .card-head { background: var(--ep-orange); }
+.card.style-0 .card-title,
+.card.style-0 .card-chip { color: var(--ep-black); }
+
+/* ---------- Corps de carte et articles ---------- */
+
+.card-body {
+    flex: 1 1 auto;
+    padding: 0.5em 0.9em;
+    overflow: hidden;
+}
+
+.article {
+    padding: 0.5em 0;
+    border-bottom: 0.07em dashed var(--ep-black);
+}
+
+.article:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.article-title {
+    margin: 0 0 0.2em 0;
+    font-size: 1em;
+    font-weight: bold;
+    line-height: 1.25;
+    overflow: hidden;
+}
+
+/* Couleur du titre de l'article = couleur du thème */
+.card.style-1 .article-title { color: var(--ep-red); }
+.card.style-2 .article-title { color: var(--ep-blue); }
+.card.style-3 .article-title { color: var(--ep-green); }
+.card.style-4 .article-title { color: #8A6D00; }
+.card.style-0 .article-title { color: var(--ep-orange); }
+
+.article-excerpt {
+    margin: 0;
+    font-size: 0.88em;
+    line-height: 1.35;
     text-align: justify;
+    overflow: hidden;
 }
 
-.content.large {
-    column-count: 2;
-    column-gap: 50px;
-    font-size: 26px;
+/* ---------- Pied de page ---------- */
+
+.footline {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.7em;
+    padding: 0.45em 0 0;
+    border-top: 0.15em solid var(--ep-black);
+}
+
+.foot-label,
+.foot-date {
+    font-size: 0.75em;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.foot-label {
+    background: var(--ep-black);
+    color: var(--ep-white);
+    padding: 0.15em 0.6em;
+}
+
+.foot-rule {
+    flex: 1 1 auto;
+    height: 0.15em;
+    background: repeating-linear-gradient(
+        90deg,
+        var(--ep-black) 0 0.6em,
+        transparent 0.6em 1.1em
+    );
 }

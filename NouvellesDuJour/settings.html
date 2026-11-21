@@ -1,7 +1,5 @@
 <div class="form-group">
-    <label for="word_count">
-        Nombre de mots
-    </label>
+    <label for="word_count">Nombre de mots</label>
     <input
         type="number"
         id="word_count"
@@ -13,107 +11,43 @@
 </div>
 
 <div class="form-group">
-    <label for="style">
-        Style littéraire
-    </label>
-    <select
-        id="style"
-        name="style"
-        class="form-control">
-
-```
-    <option value="journalistique">
-        Journalistique
-    </option>
-
-    <option value="Victor Hugo">
-        Victor Hugo
-    </option>
-
-    <option value="Flaubert">
-        Gustave Flaubert
-    </option>
-
-    <option value="Zola">
-        Émile Zola
-    </option>
-
-    <option value="Maupassant">
-        Guy de Maupassant
-    </option>
-
-</select>
-```
-
+    <label for="style">Style littéraire</label>
+    <select id="style" name="style" class="form-control">
+        <option value="journalistique">Journalistique</option>
+        <option value="Victor Hugo">Victor Hugo</option>
+        <option value="Flaubert">Gustave Flaubert</option>
+        <option value="Zola">Émile Zola</option>
+        <option value="Maupassant">Guy de Maupassant</option>
+    </select>
 </div>
 
 <div class="form-group">
-    <label for="topics">
-        Centres d'intérêt
-        (séparés par des virgules)
-    </label>
-
-```
-<input
-    type="text"
-    id="topics"
-    name="topics"
-    value="technologie, économie"
-    class="form-control"
-    placeholder="IA, espace, économie, sciences">
-```
-
+    <label for="topics">Centres d'intérêt (séparés par des virgules)</label>
+    <input
+        type="text"
+        id="topics"
+        name="topics"
+        value="technologie, économie"
+        class="form-control"
+        placeholder="IA, espace, économie, sciences">
 </div>
 
 <div class="form-group">
     <label>
-        <input
-            type="checkbox"
-            id="kids_filter"
-            name="kids_filter">
-
-```
-    Filtre enfant
-</label>
-```
-
+        <input type="checkbox" id="kids_filter" name="kids_filter">
+        Filtre enfant
+    </label>
 </div>
 
 <script>
-
-document.addEventListener(
-    "DOMContentLoaded",
-    function () {
-
-        if (
-            typeof pluginSettings !== "undefined"
-        ) {
-
-            document.getElementById(
-                "word_count"
-            ).value =
-                pluginSettings.word_count || 500;
-
-            document.getElementById(
-                "style"
-            ).value =
-                pluginSettings.style ||
-                "journalistique";
-
-            document.getElementById(
-                "topics"
-            ).value =
-                pluginSettings.topics ||
-                "";
-
-            document.getElementById(
-                "kids_filter"
-            ).checked =
-                pluginSettings.kids_filter === true ||
-                pluginSettings.kids_filter === "on";
-        }
-
+document.addEventListener("DOMContentLoaded", function () {
+    if (typeof pluginSettings !== "undefined") {
+        document.getElementById("word_count").value = pluginSettings.word_count || 500;
+        document.getElementById("style").value = pluginSettings.style || "journalistique";
+        document.getElementById("topics").value = pluginSettings.topics || "";
+        document.getElementById("kids_filter").checked =
+            pluginSettings.kids_filter === true ||
+            pluginSettings.kids_filter === "on";
     }
-);
-
+});
 </script>
