@@ -1,19 +1,20 @@
 /* ==========================================================================
-   Nouvelles du Jour — mise en page pour e-paper couleur (7 teintes)
-   Inky Impression / Spectra 6 : noir, blanc, rouge, jaune, vert, bleu, orange
-   Principes : aplats saturés (dithering propre), contrastes forts, zéro
-   dégradé, zéro police distante.
+   Nouvelles du Jour — mise en page e-paper couleur Waveshare 13.3"
+   (Spectra 6, 1600x1200) — s'adapte aussi aux autres résolutions.
+
+   Palette native du panneau (6 teintes) : noir, blanc, rouge, jaune,
+   vert, bleu. Uniquement des aplats saturés => dithering propre.
+   Pas d'orange (absent du panneau), pas de dégradés doux, pas de gris.
    ========================================================================== */
 
 :root {
-    /* Palette optimisée e-paper couleur */
+    /* Palette calibrée e-paper couleur */
     --ep-white:  #FFFFFF;
     --ep-black:  #000000;
     --ep-red:    #E42313;
     --ep-blue:   #1D41C8;
     --ep-green:  #00A651;
     --ep-yellow: #FFD200;
-    --ep-orange: #F16E00;
 }
 
 /* ---------- Structure générale ---------- */
@@ -28,12 +29,14 @@ html, body {
     color: var(--ep-black);
 }
 
+/* Base typographique : conforme au format 4:3 / 1600x1200,
+   conserve toutefois l'adaptation aux autres écrans. */
 .page {
     display: flex;
     flex-direction: column;
     height: 100%;
     box-sizing: border-box;
-    font-size: min(2.1vh, 1.7vw);
+    font-size: min(2.2vh, 1.75vw);
 }
 
 /* ---------- Bandeau titre (noir / blanc / rouge) ---------- */
@@ -80,7 +83,7 @@ html, body {
     white-space: nowrap;
 }
 
-/* ---------- Grille des thèmes ---------- */
+/* ---------- Grille des thèmes (2 colonnes sur format 4:3) ---------- */
 
 .board {
     flex: 1 1 auto;
@@ -89,7 +92,6 @@ html, body {
     grid-auto-rows: 1fr;
     gap: 1em;
     padding: 1em 0;
-    align-content: start;
     overflow: hidden;
 }
 
@@ -108,12 +110,13 @@ html, body {
 }
 
 /* ---------- En-têtes de carte, rotation des couleurs ---------- */
+/* loop.index % 4 => 1 rouge, 2 bleu, 3 vert, 0 jaune */
 
 .card-head {
     display: flex;
     align-items: center;
     gap: 0.5em;
-    padding: 0.4em 0.7em;
+    padding: 0.45em 0.7em;
 }
 
 .card-chip {
@@ -156,11 +159,7 @@ html, body {
 .card.style-3 .card-chip { color: var(--ep-green); }
 
 /* Thème 4 : jaune (texte noir) */
-.card.style-4 .card-head { background: var(--ep-yellow); }
-.card.style-4 .card-title,
-.card.style-4 .card-chip { color: var(--ep-black); }
-
-.card.style-0 .card-head { background: var(--ep-orange); }
+.card.style-0 .card-head { background: var(--ep-yellow); }
 .card.style-0 .card-title,
 .card.style-0 .card-chip { color: var(--ep-black); }
 
@@ -168,12 +167,12 @@ html, body {
 
 .card-body {
     flex: 1 1 auto;
-    padding: 0.5em 0.9em;
+    padding: 0.6em 1em;
     overflow: hidden;
 }
 
 .article {
-    padding: 0.5em 0;
+    padding: 0.55em 0;
     border-bottom: 0.07em dashed var(--ep-black);
 }
 
@@ -183,24 +182,42 @@ html, body {
 }
 
 .article-title {
-    margin: 0 0 0.2em 0;
+    margin: 0 0 0.25em 0;
     font-size: 1em;
     font-weight: bold;
     line-height: 1.25;
     overflow: hidden;
 }
 
-/* Couleur du titre de l'article = couleur du thème */
+/* Puce carrée dans la couleur du thème devant chaque titre */
+.article-title::before {
+    content: "";
+    display: inline-block;
+    width: 0.45em;
+    height: 0.45em;
+    margin-right: 0.4em;
+    vertical-align: 0.08em;
+    background: var(--ep-black);
+}
+
+.card.style-1 .article-title::before { background: var(--ep-red); }
+.card.style-2 .article-title::before { background: var(--ep-blue); }
+.card.style-3 .article-title::before { background: var(--ep-green); }
+.card.style-0 .article-title::before { background: var(--ep-yellow); }
+
+/* Titre coloré sur les thèmes foncés (aplats propres au panneau) */
 .card.style-1 .article-title { color: var(--ep-red); }
 .card.style-2 .article-title { color: var(--ep-blue); }
 .card.style-3 .article-title { color: var(--ep-green); }
-.card.style-4 .article-title { color: #8A6D00; }
-.card.style-0 .article-title { color: var(--ep-orange); }
+
+/* Sur fond jaune, on garde un titre noir pour un contraste maximal ;
+   la puce jaune apporte la couleur solo */
+.card.style-0 .article-title { color: var(--ep-black); }
 
 .article-excerpt {
     margin: 0;
     font-size: 0.88em;
-    line-height: 1.35;
+    line-height: 1.42;
     text-align: justify;
     overflow: hidden;
 }
