@@ -179,21 +179,54 @@ class NouvellesDuJour(BasePlugin):
     # -------------------------
 
     def _normalize_summary(self, summary):
-        """Garantit une structure {theme: {titre: texte}} pour le rendu Jinja."""
+        """Garantit une structure {theme: {titre: texte}} pour le rendu Jinja.
+
+        Applique des plafonds de taille pour que le rendu tienne TOUJOURS
+        dans le cadre, quelle que soit la verbosité du modèle IA :
+        4 thèmes max, 3 actualités max par thème, textes tronqués.
+        """
+        MAX_THEMES = 4
+        MAX_ARTICLES = 3
+        MAX_TITLE_CHARS = 110
+        MAX_TEXT_CHARS = 260
+
         normalized = {}
         if not isinstance(summary, dict):
             return normalized
         for theme, articles in summary.items():
+            if len(normalized) >= MAX_THEMES:
+                break
             theme = str(theme)
             if isinstance(articles, dict):
-                normalized[theme] = {
-                    str(title): self._to_text(content)
-                    for title, content in articles.items()
-                }
+                items = list(articles.items())[:MAX_ARTICLES]
+                theme_dict = {}
+                for title, content in items:
+                    t = self._clip(str(title), MAX_TITLE_CHARS)
+                    base_t = t
+                    n = 2
+                    # Dédoublonnage : deux titres tronqués identiques écraseraient un article
+                    while t in theme_dict:
+                        t = "%s (%d)" % (base_t[: MAX_TITLE_CHARS - 5], n)
+                        n += 1
+                    theme_dict[t] = self._clip(self._to_text(content), MAX_TEXT_CHARS)
+                normalized[theme] = theme_dict
             else:
                 # Ancien format (texte brut sous un thème)
-                normalized[theme] = {"Actualités": self._to_text(articles)}
+                normalized[theme] = {"Actualités": self._clip(self._to_text(articles), MAX_TEXT_CHARS)}
         return normalized
+
+    @staticmethod
+    def _clip(text, max_chars):
+        """Tronque un texte proprement au dernier espace avant la limite."""
+        text = (text or "").strip()
+        if len(text) <= max_chars:
+            return text
+        cut = text[:max_chars]
+        # On coupée au dernier espace pour ne pas couper un mot en deux
+        space = cut.rfind(" ")
+        if space > max_chars // 2:
+            cut = cut[:space]
+        return cut.rstrip(",;:. ") + "…"
 
     def _to_text(self, value):
         if isinstance(value, str):

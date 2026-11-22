@@ -13,7 +13,7 @@
 
     <main class="board">
         {% for theme, articles in summary.items() %}
-        <section class="card style-{{ loop.index % 4 }}">
+        <section class="card style-{{ loop.index % 4 }}{% if articles|length > 2 %} card-dense{% endif %}">
             <header class="card-head">
                 <span class="card-chip">{{ loop.index }}</span>
                 <h2 class="card-title">{{ theme }}</h2>

@@ -36,7 +36,7 @@ html, body {
     flex-direction: column;
     height: 100%;
     box-sizing: border-box;
-    font-size: min(2.2vh, 1.75vw);
+    font-size: min(1.85vh, 1.45vw);
 }
 
 /* ---------- Bandeau titre (noir / blanc / rouge) ---------- */
@@ -91,7 +91,7 @@ html, body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-auto-rows: 1fr;
     gap: 1em;
-    padding: 1em 0;
+    padding: 0.75em 1em;
     overflow: hidden;
 }
 
@@ -167,12 +167,12 @@ html, body {
 
 .card-body {
     flex: 1 1 auto;
-    padding: 0.6em 1em;
+    padding: 0.5em 0.9em;
     overflow: hidden;
 }
 
 .article {
-    padding: 0.55em 0;
+    padding: 0.4em 0;
     border-bottom: 0.07em dashed var(--ep-black);
 }
 
@@ -187,6 +187,9 @@ html, body {
     font-weight: bold;
     line-height: 1.25;
     overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 
 /* Puce carrée dans la couleur du thème devant chaque titre */
@@ -217,9 +220,31 @@ html, body {
 .article-excerpt {
     margin: 0;
     font-size: 0.88em;
-    line-height: 1.42;
+    line-height: 1.34;
     text-align: justify;
     overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+/* Au-dela du 2e article, on resserre : 2 lignes de resume max
+   pour garantir que tout tient dans la carte meme dans le pire cas */
+.article:nth-child(n+3) .article-excerpt {
+    -webkit-line-clamp: 2;
+}
+
+.article:nth-child(n+3) {
+    padding-top: 0.3em;
+}
+
+/* Carte dense (3 articles et plus) : resumes sur 2 lignes, espacements reduits */
+.card-dense .article-excerpt {
+    -webkit-line-clamp: 2;
+}
+
+.card-dense .article {
+    padding: 0.3em 0;
 }
 
 /* ---------- Pied de page ---------- */
