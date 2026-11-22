@@ -19,7 +19,7 @@ CACHE_FILE_GOOGLE = CACHE_DIR / "google_output.json"
 
 MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions"
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
-DEFAULT_OLLAMA_MODEL = "qwen2.5:3b"
+DEFAULT_OLLAMA_MODEL = "gemma2:2b"  # adapté au Raspberry Pi 4B 4 Go
 
 SYSTEM_MESSAGE = (
     "Tu es un journaliste professionnel (en français). "

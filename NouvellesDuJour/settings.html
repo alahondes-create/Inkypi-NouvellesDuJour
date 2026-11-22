@@ -26,11 +26,11 @@
         type="text"
         id="ollama_model"
         name="ollama_model"
-        value="qwen2.5:3b"
+        value="gemma2:2b"
         class="form-control"
-        placeholder="qwen2.5:3b">
+        placeholder="gemma2:2b">
     <small class="text-muted">
-        Modèles recommandés — Raspberry Pi 8 Go : qwen2.5:3b ;
+        Modèles recommandés — Raspberry Pi 8 Go : gemma2:2b ;
         4 Go : gemma2:2b ou qwen2.5:1.5b ; ne pas dépasser 3b.
     </small>
 </div>
@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (typeof pluginSettings !== "undefined") {
         document.getElementById("backend").value = pluginSettings.backend || "ollama";
         document.getElementById("ollama_url").value = pluginSettings.ollama_url || "http://127.0.0.1:11434";
-        document.getElementById("ollama_model").value = pluginSettings.ollama_model || "qwen2.5:3b";
+        document.getElementById("ollama_model").value = pluginSettings.ollama_model || "gemma2:2b";
         document.getElementById("word_count").value = pluginSettings.word_count || 400;
         document.getElementById("style").value = pluginSettings.style || "journalistique";
         document.getElementById("topics").value = pluginSettings.topics || "";
