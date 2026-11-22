@@ -18,6 +18,13 @@ CACHE_FILE = CACHE_DIR / "daily_summary.json"
 CACHE_FILE_GOOGLE = CACHE_DIR / "google_output.json"
 
 MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions"
+DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
+DEFAULT_OLLAMA_MODEL = "qwen2.5:3b"
+
+SYSTEM_MESSAGE = (
+    "Tu es un journaliste professionnel (en français). "
+    "Réponds UNIQUEMENT en JSON valide, sans commentaire ni texte supplémentaire."
+)
 
 
 # -------------------------
@@ -89,12 +96,7 @@ class NouvellesDuJour(BasePlugin):
         summary = load_cache()
 
         if summary is None:
-            api_key = device_config.load_env_key("MISTRAL_API_KEY")
-            if not api_key:
-                raise RuntimeError("MISTRAL_API_KEY manquante")
-            logger.debug("API Key chargée")
-
-            word_count = self._to_int(settings.get("word_count"), 500)
+            word_count = self._to_int(settings.get("word_count"), 400)
             style = settings.get("style") or "journalistique"
             topics = settings.get("topics") or ""
             kids_filter = str(settings.get("kids_filter", False)).lower() in ("on", "true", "1", "yes")
@@ -104,16 +106,49 @@ class NouvellesDuJour(BasePlugin):
                 raise RuntimeError("Aucun article récupéré depuis Google News. Vérifiez la connexion du Raspberry Pi.")
             logger.debug("Trouvé %d articles", len(articles))
 
-            summary = self.call_mistral(api_key, articles, word_count, style, topics, kids_filter)
-            # On ne met en cache qu'un résumé exploitable :
-            # en cas d'échec Mistral, le prochain rafraîchissement réessaiera.
-            if summary is not None:
-                save_cache(summary)
+            # Backend IA choisi dans les réglages, l'autre en secours
+            backend = (settings.get("backend") or "ollama").lower()
+            ollama_url = (settings.get("ollama_url") or "").strip() or DEFAULT_OLLAMA_URL
+            ollama_model = (settings.get("ollama_model") or "").strip() or DEFAULT_OLLAMA_MODEL
+
+            backends = []
+            if backend == "mistral":
+                backends = ["mistral", "ollama"]
             else:
+                backends = ["ollama", "mistral"]
+
+            api_key = None
+            for name in backends:
+                try:
+                    if name == "mistral":
+                        if api_key is None:
+                            api_key = device_config.load_env_key("MISTRAL_API_KEY")
+                        if not api_key:
+                            logger.debug("Backend mistral indisponible : MISTRAL_API_KEY absente")
+                            continue
+                        summary = self.call_mistral(api_key, articles, word_count, style, topics, kids_filter)
+                    else:
+                        summary = self.call_ollama(ollama_url, ollama_model, articles, word_count, style, topics, kids_filter)
+                except Exception as e:
+                    logger.error("Erreur du backend %s : %s", name, e)
+                    summary = None
+
+                if summary is not None:
+                    logger.info("Synthèse générée par le backend : %s", name)
+                    save_cache(summary)
+                    break
+                logger.warning("Backend %s : échec, passage au backend suivant", name)
+            else:
+                summary = None
+
+            if summary is None:
                 # Repli : utiliser un ancien cache plutôt qu'un écran vide
                 summary = self._load_stale_cache()
                 if summary is None:
-                    raise RuntimeError("La synthèse Mistral a échoué. Vérifiez les logs du serveur.")
+                    raise RuntimeError(
+                        "Génération impossible : Ollama indisponible et Mistral inaccessible "
+                        "(quota/réseau). Vérifiez les logs du serveur."
+                    )
 
         else:
             logger.debug("Utilisation du cache du jour")
@@ -144,7 +179,7 @@ class NouvellesDuJour(BasePlugin):
     # -------------------------
 
     def _normalize_summary(self, summary):
-        """Garantit une structure {theme: {titre: texte}} pour ce qui peut être parcouru en Jinja (texte brut, ancien format, dict imbriqués)."""
+        """Garantit une structure {theme: {titre: texte}} pour le rendu Jinja."""
         normalized = {}
         if not isinstance(summary, dict):
             return normalized
@@ -234,12 +269,10 @@ class NouvellesDuJour(BasePlugin):
         return articles
 
     # -------------------------
-    # MISTRAL CALL
+    # PROMPT COMMUN
     # -------------------------
 
-    def call_mistral(self, api_key, articles, word_count, style, topics, kids_filter):
-        logger.debug("Appel de Mistral")
-
+    def build_prompt(self, articles, word_count, style, topics, kids_filter):
         formatted_news = "\n".join(
             "- %s (%s)" % (a["title"], a["source"])
             for a in articles
@@ -253,47 +286,67 @@ class NouvellesDuJour(BasePlugin):
             )
 
         prompt = f"""
-    Tu es un rédacteur en chef. Voici les actualités du jour :
+Tu es un rédacteur en chef. Voici les actualités du jour :
 
-    {formatted_news}
+{formatted_news}
 
-    **Consignes strictes :**
-    - Longueur totale : environ {word_count} mots.
-    - Style : {style}.
-    - Centres d'intérêt prioritaires : {topics}.
-    {kid_instruction}
+**Consignes strictes :**
+- Longueur totale : environ {word_count} mots.
+- Style : {style}.
+- Centres d'intérêt prioritaires : {topics}.
+{kid_instruction}
 
-    **Format de sortie obligatoire (JSON) :**
-    Réponds UNIQUEMENT avec un objet JSON structuré comme ceci :
-    {{
-      "Centre d'intérêt 1": {{
-        "Titre de l'actualité 1": "Résumé concis de l'actualité 1",
-        "Titre de l'actualité 2": "Résumé concis de l'actualité 2"
-      }},
-      "Centre d'intérêt 2": {{
-        "Titre de l'actualité 3": "Résumé concis de l'actualité 3"
-      }}
-    }}
+**Format de sortie obligatoire (JSON) :**
+Réponds UNIQUEMENT avec un objet JSON structuré comme ceci :
+{{
+  "Centre d'intérêt 1": {{
+    "Titre de l'actualité 1": "Résumé concis de l'actualité 1",
+    "Titre de l'actualité 2": "Résumé concis de l'actualité 2"
+  }},
+  "Centre d'intérêt 2": {{
+    "Titre de l'actualité 3": "Résumé concis de l'actualité 3"
+  }}
+}}
 
-    **Règles :**
-    - Ne pas inclure de texte en dehors du JSON.
-    - Les clés doivent être les centres d'intérêt ou les titres des actualités.
-    - Les valeurs doivent être des résumés en français, clairs et fluides.
-    - Si un centre d'intérêt n'a pas d'actualité, ne l'inclus pas.
-    - Limite : 3 à 4 thèmes maximum, 2 à 3 actualités par thème.
-    """
+**Règles :**
+- Ne pas inclure de texte en dehors du JSON.
+- Les clés doivent être les centres d'intérêt ou les titres des actualités.
+- Les valeurs doivent être des résumés en français, clairs et fluides.
+- Si un centre d'intérêt n'a pas d'actualité, ne l'inclus pas.
+- Limite : 3 à 4 thèmes maximum, 2 à 3 actualités par thème.
+"""
+        logger.debug("Prompt construit (%d caractères)", len(prompt))
+        return prompt
 
-        logger.debug("Prompt envoyé à Mistral (%d caractères)", len(prompt))
+    def extract_json(self, raw_response):
+        """Extraction robuste du JSON (au cas où du texte entourerait l'objet)."""
+        json_start = raw_response.find("{")
+        json_end = raw_response.rfind("}") + 1
+        if json_start < 0 or json_end <= json_start:
+            logger.error("Réponse IA sans JSON : %s", raw_response[:500])
+            return None
+        try:
+            parsed_json = json.loads(raw_response[json_start:json_end])
+            logger.debug("Réponse IA parsée en JSON (%d thèmes)", len(parsed_json))
+            return parsed_json
+        except json.JSONDecodeError as e:
+            logger.error("Réponse IA non exploitable : %s", e)
+            return None
+
+    # -------------------------
+    # BACKEND 1 : MISTRAL (cloud)
+    # -------------------------
+
+    def call_mistral(self, api_key, articles, word_count, style, topics, kids_filter):
+        logger.debug("Appel de Mistral (cloud)")
+        prompt = self.build_prompt(articles, word_count, style, topics, kids_filter)
 
         payload = {
             "model": "mistral-medium-latest",
             "temperature": 0.3,
             "response_format": {"type": "json_object"},
             "messages": [
-                {
-                    "role": "system",
-                    "content": "Tu es un journaliste professionnel. Réponds UNIQUEMENT en JSON valide, sans commentaire ni texte supplémentaire.",
-                },
+                {"role": "system", "content": SYSTEM_MESSAGE},
                 {"role": "user", "content": prompt},
             ],
         }
@@ -336,12 +389,8 @@ class NouvellesDuJour(BasePlugin):
             break  # autre code (401, 403...) : inutile de réessayer
 
         if response is None or response.status_code != 200:
-            try:
-                response.raise_for_status()
-            except Exception:
-                # message déjà logué dans la boucle ; lever une exception propre
-                logger.error("Echec de l'appel Mistral après %d tentatives", max_attempts)
-                return None
+            logger.error("Echec de l'appel Mistral après %d tentatives", max_attempts)
+            return None
 
         try:
             raw_response = response.json()["choices"][0]["message"]["content"]
@@ -349,17 +398,45 @@ class NouvellesDuJour(BasePlugin):
             logger.error("Réponse Mistral inattendue : %s", e)
             return None
 
-        # Extraction robuste du JSON (au cas où du texte entourerait l'objet)
-        json_start = raw_response.find("{")
-        json_end = raw_response.rfind("}") + 1
-        if json_start < 0 or json_end <= json_start:
-            logger.error("Réponse Mistral sans JSON : %s", raw_response[:500])
+        return self.extract_json(raw_response)
+
+    # -------------------------
+    # BACKEND 2 : OLLAMA (local, Raspberry Pi)
+    # -------------------------
+
+    def call_ollama(self, base_url, model, articles, word_count, style, topics, kids_filter):
+        logger.debug("Appel d'Ollama (%s, modèle %s)", base_url, model)
+        prompt = self.build_prompt(articles, word_count, style, topics, kids_filter)
+
+        payload = {
+            "model": model,
+            "stream": False,
+            "format": "json",  # sortie JSON contrainte côté serveur
+            "options": {
+                "temperature": 0.3,
+                "num_ctx": 4096,   # contexte suffisant pour 25 titres + consignes
+                "num_predict": 2048,
+            },
+            "messages": [
+                {"role": "system", "content": SYSTEM_MESSAGE},
+                {"role": "user", "content": prompt},
+            ],
+        }
+
+        # La génération locale sur Pi 4 peut prendre plusieurs minutes
+        try:
+            response = requests.post(
+                "%s/api/chat" % base_url.rstrip("/"),
+                json=payload,
+                timeout=(10, 900),
+            )
+            response.raise_for_status()
+            raw_response = response.json()["message"]["content"]
+        except requests.RequestException as e:
+            logger.error("Ollama injoignable ou en erreur sur %s : %s", base_url, e)
+            return None
+        except (KeyError, IndexError, ValueError) as e:
+            logger.error("Réponse Ollama inattendue : %s", e)
             return None
 
-        try:
-            parsed_json = json.loads(raw_response[json_start:json_end])
-            logger.debug("Réponse Mistral parsée en JSON (%d thèmes)", len(parsed_json))
-            return parsed_json
-        except json.JSONDecodeError as e:
-            logger.error("Réponse Mistral non exploitable : %s", e)
-            return None
+        return self.extract_json(raw_response)
